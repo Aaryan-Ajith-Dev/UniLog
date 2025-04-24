@@ -1,0 +1,2 @@
+1 , HIVE.SET (( SID103 , CSE016 ) , A )
+2 , HIVE.GET ( SID103 , CSE016 )
