@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Read the CSV file into a pandas DataFrame
-data = pd.read_csv('GradeRosterReport.csv')
+data = pd.read_csv('./dataset/GradeRosterReport.csv')
 
 # Define the columns that form the primary key
 primary_key_columns = ["Student ID", "Subject Code / Name"]
@@ -19,7 +19,7 @@ print("\nChecking for null values in primary key columns after deletion:")
 print(data[primary_key_columns].isnull().sum())
 
 # Store the cleaned data into a new CSV file named 'cleaned_grades.csv'
-cleaned_grades_file = 'cleaned_grades.csv'
+cleaned_grades_file = './dataset/cleaned_grades.csv'
 data.to_csv(cleaned_grades_file, index=False)  # index=False prevents writing the DataFrame index to the CSV
 
 print(f"\nCleaned data has been saved to '{cleaned_grades_file}'.")
