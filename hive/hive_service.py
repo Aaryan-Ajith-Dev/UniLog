@@ -87,9 +87,6 @@ class HiveSystem:
                     self.timestamp_cache[key] = time_stamp
 
                 
-
-            
-            print(self.timestamp_cache)
             print("✅ Timestamp cache initialized with dumped data.")
             print(f"Cached {len(self.timestamp_cache)} prime key combinations.")
 
@@ -667,6 +664,75 @@ class HiveSystem:
         except Exception as e:
             print(f"❌ Error loading timecache: {e}")
 
+    def get_oplog(self):
+        '''Sends the oplog data to other systems'''
+
+        try:
+            # Fetch oplog entries
+            self.cursor.execute("SELECT * FROM oplog")
+            rows = self.cursor.fetchall()
+
+            oplog_data = []
+            for row in rows:
+                entry = {
+                    "timestamp": row[0],
+                    "operation": row[1],
+                    "table_name": row[2],
+                    "keys": {}
+                }
+                oplog_data.append(entry)
+
+            return oplog_data
+
+        except Exception as e:
+            print(f"❌ Error fetching oplog data: {e}")
+            return []
+        
+    # Convert '["k1: v1", "k2: v2"]' to dict: {'k1': 'v1', 'k2': 'v2'}
+    def parse_key_value_list(self,kv_list_str):
+        kv_dict = {}
+        try:
+            kv_list = ast.literal_eval(kv_list_str)
+            for pair in kv_list:
+                if ":" in pair:
+                    key, value = pair.split(":", 1)
+                    kv_dict[key.strip()] = value.strip()
+        except Exception as e:
+            print(f"❌ Error parsing keys/items: {e}")
+        return kv_dict
+        
+
+    def get_oplog(self):
+        '''Sends the oplog data to other systems'''
+        try:
+            # Fetch oplog entries
+            self.cursor.execute("SELECT * FROM oplog")
+            rows = self.cursor.fetchall()
+
+            oplog_data = []
+            for row in rows:
+                timestamp, operation, table_name, keys_str, item_str = row
+
+                
+
+                keys_dict = self.parse_key_value_list(keys_str)
+                items_dict = self.parse_key_value_list(item_str)
+
+                entry = {
+                    "timestamp": timestamp,
+                    "operation": operation,
+                    "table": table_name,
+                    "keys": keys_dict,
+                    "item": items_dict
+                }
+
+                oplog_data.append(entry)
+
+            return oplog_data
+
+        except Exception as e:
+            print(f"❌ Error fetching oplog data: {e}")
+            return []
 
 
 
