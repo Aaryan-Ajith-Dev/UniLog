@@ -1,4 +1,0 @@
-1 , SET ((SID103, CSE016), [grade] = [A])
-2 , GET (SID103, CSE016)
-1 , SET ((SID1033, CSE016), [grade, roll_no] = [B, nrivbiorb])
-2 , GET (SID103, CSE016)
