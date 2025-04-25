@@ -3,6 +3,8 @@ import os
 from pyhive import hive
 import pandas as pd
 import re
+import ast
+import tempfile
 
 class HiveSystem:
     def __init__(self, host='localhost', port=10000, database='default'):
@@ -28,14 +30,6 @@ class HiveSystem:
         self.table_name = None
         self.all_columns = []
 
-        # Initialize operation log if it doesn't exist
-        if not os.path.exists(self.oplog_file):
-            with open(self.oplog_file, 'w') as f:
-                pass  # Create an empty file
-
-        # Load timestamp cache from existing oplog
-        self._rebuild_timestamp_cache()
-
 
         
     def connect(self):
@@ -60,49 +54,78 @@ class HiveSystem:
         if self.connection:
             self.connection.close()
         print("Disconnected from Hive")
-    
-    def _rebuild_timestamp_cache(self):
+
+    def build_timestamp_cache(self, prime_attr):
         """
-        Rebuild the timestamp cache from the existing operation log
+        Build the initial timestamp cache using dumped data.
+        Assumes all dumped rows have custom_timestamp = 0.
+        
+        Args:
+            prime_attr (list): List of attribute names (e.g., ['student_id', 'course_id'])
         """
         try:
-            with open(self.oplog_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
+            if not hasattr(self, "timestamp_cache"):
+                self.timestamp_cache = {}
 
-                    # Split timestamp and operation
-                    parts = line.split(',', 1)
-                    if len(parts) < 2:
-                        continue
+            # Compose the SELECT query to get distinct combinations of prime attributes
+            group_by_cols = ", ".join(prime_attr+ ['custom_timestamp'])
+            query = f"""
+            SELECT {group_by_cols}
+            FROM {self.table_name}
+            """
+            print(f"Executing timestamp cache init query: {query}")
+            self.cursor.execute(query)
+            results = self.cursor.fetchall()
 
-                    timestamp = int(parts[0].strip())
-                    operation = parts[1].strip()
+            print(results)
+            
+            for row in results:
+                key = tuple(str(val) for val in row[:-1])
+                time_stamp = row[-1]
+                val = self.timestamp_cache.get(key, -1)
+                if time_stamp > val:
+                    self.timestamp_cache[key] = time_stamp
 
-                    # Process the operation using the generic operation parser
-                    if operation.startswith("HIVE."):
-                        parsed_op = self.parse_generic_hive_op(operation[5:])
-                        if parsed_op:
-                            op_type, key_tuple, _ = parsed_op  # Ignore values, we're only interested in the keys
+                
 
-                            # For SET or GET operations, we store the timestamp for the key tuple(s)
-                            if op_type in ["SET", "GET"]:
-                                for key in key_tuple:
-                                    self.timestamp_cache[key] = timestamp
+            
+            print(self.timestamp_cache)
+            print("✅ Timestamp cache initialized with dumped data.")
+            print(f"Cached {len(self.timestamp_cache)} prime key combinations.")
+
         except Exception as e:
-            print(f"Error rebuilding timestamp cache: {e}")
+            print(f"❌ Failed to build timestamp cache: {e}")
 
     
-    def load_data_from_csv(self, csv_file, loaded=False):
+    def set_timestamp_cache(self, key, timestamp):
+        """
+        Set the timestamp cache to map keys to their latest timestamps.
+        If the key exists, the timestamp is updated; if not, the key is added with the provided timestamp.
+        """
+        try:
+            self.timestamp_cache[key] = timestamp
+            print(f"Assigned timestamp for key {key} with value {timestamp}.")
+                
+        except Exception as e:
+            print(f"Error updating timestamp cache: {e}")
+
+
+    
+    def load_data_from_csv(self, csv_file, recreate=False):
         """
         Load data from CSV file into Hive table, adding a default timestamp of 0 for each row.
         """
-        if loaded:
+        if not recreate:
             print("Data already loaded. Skipping...")
             return
         try:
-            self.connect()
+
+            with open(csv_file, 'r') as f:
+                lines = f.readlines()
+                data_lines = lines[1:]  # skip header
+                temp_csv = tempfile.NamedTemporaryFile(delete=False, mode='w')
+                temp_csv.writelines(data_lines)
+                temp_csv.close()
 
             self.cursor.execute("SET hive.auto.convert.join=false;")
             self.cursor.execute("SET hive.exec.mode.local.auto=true;")
@@ -162,15 +185,15 @@ class HiveSystem:
             self.cursor.execute(insert_query)
 
             # Drop staging table
-            # self.cursor.execute("DROP TABLE IF EXISTS student_course_grades_staging")
+            self.cursor.execute("DROP TABLE IF EXISTS student_course_grades_staging")
 
+            # self.build_timestamp_cache()
             print(f"✅ Successfully loaded data from {csv_file} into Hive table 'student_course_grades'")
+
+            
 
         except Exception as e:
             print(f"❌ Error loading data: {e}")
-
-        finally:
-            self.disconnect()
 
 
 
@@ -182,7 +205,6 @@ class HiveSystem:
             table_name (str): Name of the table to work with
         """
         try:
-            self.connect()
             self.table_name = table_name
 
             # Fetch column names
@@ -194,8 +216,6 @@ class HiveSystem:
         except Exception as e:
             print(f"Error setting table: {e}")
             raise
-        finally:
-            self.disconnect()
 
 
 
@@ -212,7 +232,6 @@ class HiveSystem:
             list: Retrieved values (rows) if found, [] otherwise
         """
         try:
-            self.connect()
 
             if not hasattr(self, "all_columns") or not hasattr(self, "table_name"):
                 raise AttributeError("Table schema not set. Call set_table(table_name) first.")
@@ -226,15 +245,19 @@ class HiveSystem:
             )
 
             query = f"SELECT * FROM {self.table_name} WHERE {where_conditions}"
-            print(query)
+            print(f"Executing query: {query}")
             self.cursor.execute(query)
             result = self.cursor.fetchall()
 
             # Log the GET operation
             if timestamp is not None:
-                key_str = ", ".join(key_tuple)
-                operation = f"GET ({key_str})"
-                self._log_operation(operation, timestamp)
+                # Prepare the keys as key-value pairs for the log
+                keys_dict = {col: value for col, value in zip(key_columns, key_tuple)}
+                keys = [f"{key}: {value}" for key, value in keys_dict.items()]
+                operation = f"GET ({', '.join(keys)})"
+                
+                # Call the function to log the operation into the oplog
+                self.log_oplog_entry('GET', timestamp, key_tuple, None, None)
 
             if result:
                 for row in result:
@@ -247,34 +270,29 @@ class HiveSystem:
         except Exception as e:
             print(f"Error retrieving data: {e}")
             return []
-        finally:
-            self.disconnect()
+
 
     
 
             
-    def set(self, key_tuple, value, set_attr, timestamp=None, log_operation=True):
+    def set(self, key_tuple, values, set_attrs, timestamp=None, log_operation=True):
         """
-        Set or insert value for a specific attribute of a composite key with a timestamp.
-        Uses INSERT only; no UPDATE. Reuses existing values if row exists.
+        Set or insert values for multiple attributes of a composite key using INSERT only.
 
         Args:
             key_tuple (tuple): Composite key (e.g., (student_id, course_id))
-            value: Value to set for the set_attr
-            set_attr (str): Column to update/set
-            timestamp (int, optional): Operation timestamp
-            log_operation (bool): Whether to log this operation
+            values (list or tuple): Values to set for corresponding attributes
+            set_attrs (list): List of attribute names to be set
+            timestamp (int, optional): Timestamp to insert (default = 0)
+            log_operation (bool): Whether to log the operation
         """
         try:
-            self.connect()
 
             if not hasattr(self, "all_columns") or not hasattr(self, "table_name"):
                 raise AttributeError("Table schema not set. Call set_table(table_name) first.")
 
             key_columns = self.all_columns[:len(key_tuple)]
             value_columns = self.all_columns[len(key_tuple):]
-
-            # Strip table name prefix if present
             key_columns = [col.split('.')[-1] for col in key_columns]
             value_columns = [col.split('.')[-1] for col in value_columns]
             all_columns = key_columns + value_columns + ['custom_timestamp']
@@ -282,35 +300,43 @@ class HiveSystem:
             if timestamp is None:
                 timestamp = 0
 
-            # Build WHERE clause
+            # Build WHERE clause to check for existing row
             where_clause = " AND ".join(
                 f"{col} = '{val}'" for col, val in zip(key_columns, key_tuple)
             )
 
-            # Check for latest row for that key
             query = f"""
             SELECT * FROM {self.table_name}
             WHERE {where_clause}
-            ORDER BY custom_timestamp DESC
-            LIMIT 1
             """
             self.cursor.execute(query)
             existing_row = self.cursor.fetchone()
+            print(existing_row)
 
-            # Start building value dictionary
+            # Initialize all values dict with key values
             all_values_dict = dict(zip(key_columns, key_tuple))
-            for col in value_columns:
-                all_values_dict[col] = None  # Default to NULL
 
+            # Set default NULLs for all value_columns
+            for col in value_columns:
+                all_values_dict[col] = None
+
+            # If an existing row is found, preserve the existing values for the non-modified columns
             if existing_row:
                 for col, val in zip(all_columns, existing_row):
                     if col not in key_columns and col != 'custom_timestamp':
                         all_values_dict[col] = val
 
-            # Override with new value for the target column
-            if isinstance(value, tuple) and len(value) == 1:
-                value = value[0]
-            all_values_dict[set_attr] = value
+                # If timestamp in cache is greater than the one provided, skip
+                
+                cache_time = self.timestamp_cache.get(key_tuple, -1)
+                
+                if timestamp <= cache_time:
+                    print(f"⚠️ Skipping update. Timestamp {timestamp} is not newer than the cached timestamp {cache_time} for key {key_tuple}.")
+                    return False
+
+            # Set new values for the specified set_attrs
+            for attr, val in zip(set_attrs, values):
+                all_values_dict[attr] = val
             all_values_dict['custom_timestamp'] = timestamp
 
             insert_columns = all_values_dict.keys()
@@ -323,98 +349,20 @@ class HiveSystem:
             print(f"Executing query: {insert_query}")
             self.cursor.execute(insert_query)
 
+            # Log the operation if needed
             if log_operation:
-                key_str = ", ".join(key_tuple)
-                val_str = str(value)
-                operation = f"SET (({key_str}), {val_str})"
-                self._log_operation(operation, timestamp)
-                self.timestamp_cache[key_tuple] = timestamp
+                self.log_oplog_entry('SET', timestamp, key_tuple, set_attrs, values)
 
-            print(f"✅ Successfully set {set_attr} = {value} for key {key_tuple} with timestamp {timestamp}")
+            # Change timestamp cache
+            self.set_timestamp_cache(key_tuple, timestamp)
+
+            print(f"✅ Successfully set {set_attrs} = {values} for key {key_tuple} with timestamp {timestamp}")
             return True
 
         except Exception as e:
             print(f"❌ Error setting data: {e}")
             return False
-        finally:
-            self.disconnect()
 
-
-
-
-
-
-        
-    def _log_operation(self, operation, timestamp=None):
-        """
-        Append an operation to the operation log with a timestamp.
-
-        Args:
-            operation (str): The operation string (e.g., SET ((k1, k2), v1, v2))
-            timestamp (int, optional): The timestamp to use. If None, auto-generate.
-
-        Returns:
-            int: The timestamp used
-        """
-        if timestamp is None:
-            try:
-                with open(self.oplog_file, 'r') as f:
-                    lines = [line for line in f if line.strip()]
-                    if lines:
-                        timestamps = [int(line.split(',')[0].strip()) for line in lines]
-                        timestamp = max(timestamps) + 1
-                    else:
-                        timestamp = 1
-            except Exception:
-                timestamp = 1
-
-        # Write the operation with the timestamp
-        with open(self.oplog_file, 'a') as f:
-            f.write(f"{timestamp} , {operation}\n")
-
-        return timestamp
-
-    
-    def read_oplog(self, system_name):
-        """
-        Read the operation log of another system.
-
-        Args:
-            system_name (str): Name of the system (e.g., SQL, MONGO)
-
-        Returns:
-            list: List of (timestamp, operation) tuples
-        """
-        oplog_file = f"oplog.{system_name.lower()}"
-        operations = []
-
-        try:
-            with open(oplog_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    # Find the first comma that separates timestamp and operation
-                    comma_index = line.find(',')
-                    if comma_index == -1:
-                        continue
-
-                    timestamp_part = line[:comma_index].strip()
-                    operation_part = line[comma_index + 1:].strip()
-
-                    try:
-                        timestamp = int(timestamp_part)
-                        operations.append((timestamp, operation_part))
-                    except ValueError:
-                        print(f"Invalid timestamp format in line: {line}")
-                        continue
-
-            return operations
-
-        except Exception as e:
-            print(f"Error reading oplog for {system_name}: {e}")
-            return []
 
     
     def parse_operation(self, operation):
@@ -502,41 +450,51 @@ class HiveSystem:
             bool: True if successful, False otherwise
         """
         try:
-            print(f"Starting merge with {system_name}...")
-            operations = self.read_oplog(system_name)
-            
-            # Process only SET operations and consider timestamps
-            for timestamp, operation in operations:
-                parsed_op = self.parse_operation(operation)
-                if parsed_op is None or parsed_op[0] != "SET":
-                    continue
-                
-                _, student_id, course_id, grade = parsed_op
-                key = (student_id, course_id)
-                
-                # Check if we should apply this operation based on timestamp
-                should_apply = False
-                
-                # If we don't have this record or our version is older, apply the update
-                if key not in self.timestamp_cache or self.timestamp_cache[key] < timestamp:
-                    should_apply = True
-                    print(f"Applying {system_name} operation: {operation} (timestamp: {timestamp})")
+
+            # Example: Load oplog from external source (replace with real loader)
+            external_oplog = [{'timestamp': 1, 'operation': 'SET', 'table': 'student_course_grades', 'keys': {'student_id': 'SID103', 'course_id':'CSE016'}, 'item': {'grade': 'B'}}]# Expected to return list of dicts
+
+            if not hasattr(self, "timestamp_cache"):
+                self.timestamp_cache = {}
+
+            applied_count = 0
+
+            for entry in external_oplog:
+                if entry["operation"] != "SET":
+                    continue  # Only SET operations affect state
+
+                keys = entry["keys"]
+                item = entry["item"]
+                timestamp = int(entry["timestamp"])
+                table = entry.get("table", self.table_name)
+                print(f'{keys},{item},{timestamp},{table}')
+                # Validate target table
+                if table != self.table_name:
+                    continue    
+
+                attribute_names = [col.split('.')[-1] for col in self.all_columns[:len(keys)]]
+                # Convert keys to tuple for timestamp cache lookup
+                key_tuple = tuple(keys[col] for col in attribute_names)
+                cache_time = self.timestamp_cache.get(key_tuple, -1)
+                print(f'{key_tuple}, {cache_time}')
+                if timestamp > cache_time:
+                    # Apply SET operation
+                    set_attrs = list(item.keys())
+                    values = list(item.values())
+
                     
-                    # Apply the SET operation but don't log it (we're just synchronizing data)
-                    self.set(student_id, course_id, grade, timestamp=timestamp, log_operation=False)
-                    
-                    # Update our timestamp cache with the other system's timestamp
-                    self.timestamp_cache[key] = timestamp
-                else:
-                    print(f"Skipping {system_name} operation: {operation} (our timestamp: {self.timestamp_cache[key]} > {timestamp})")
-            
-            print(f"Successfully merged with {system_name}")
+                    success = self.set(key_tuple, values, set_attrs, timestamp=timestamp)
+                    if success:
+                        applied_count += 1
+
+            print(f"✅ Merge complete. Applied {applied_count} newer SET operations from {system_name}.")
             return True
-            
+
         except Exception as e:
-            print(f"Error merging with {system_name}: {e}")
+            print(f"❌ Error merging with {system_name}: {e}")
             return False
-    
+
+
 
 
 
@@ -608,21 +566,133 @@ class HiveSystem:
             return False
 
 
+    def create_oplog_table(self, recreate=False):
+        """
+        Creates the oplog table in Hive if it does not already exist.
+        The table has the following schema:
+            - timestamp: DOUBLE
+            - operation: STRING
+            - table_name: STRING
+            - keys: ARRAY<STRING>
+            - item: ARRAY<STRING>
+        
+        The data is stored as TEXTFILE format.
+        """
+        try:
+
+            if recreate:
+                # Drop the existing oplog table if it exists
+                self.cursor.execute("DROP TABLE IF EXISTS oplog")
+                print("Dropped existing oplog table.")
+
+            create_table_query = """
+            CREATE TABLE IF NOT EXISTS oplog (
+                custom_timestamp INT,
+                operation STRING,
+                table_name STRING,
+                keys ARRAY<STRING>,  -- Use array for keys
+                item ARRAY<STRING>   -- Use array for item
+            )
+            STORED AS TEXTFILE
+            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/oplog/'
+            """
+
+            print(f"Executing query: {create_table_query}")
+            self.cursor.execute(create_table_query)
+
+            print("✅ Successfully created the oplog table.")
+        except Exception as e:
+            print(f"❌ Error creating oplog table: {e}")
+
+
+    def log_oplog_entry(self, operation, timestamp, key_tuple, set_attrs, values):
+        """
+        Log the operation into the oplog in the specified format for Hive using arrays for keys and item.
+
+        Args:
+            operation (str): The operation being logged (e.g., 'SET').
+            timestamp (int): The timestamp of the operation.
+            key_tuple (tuple): The composite key values.
+            set_attrs (list): The attributes being set.
+            values (list): The corresponding values for the attributes.
+        """
+        try:
+
+            # Build the keys array (composite keys)
+            keys_array = [f"{key}: {val}" for key, val in zip(self.all_columns[:len(key_tuple)], key_tuple)]
+
+            # Build the item array (set attributes and values)
+            if set_attrs is None and values is None:
+                item_array = []
+            else:
+                item_array = [f"{attr}: {val}" for attr, val in zip(set_attrs, values)]
+
+            # Hive insert query
+            insert_query = f"""
+            INSERT INTO oplog (custom_timestamp, operation, table_name, keys, item)
+            VALUES ({timestamp}, '{operation}', '{self.table_name}', 
+                    array({', '.join(f"'{k}'" for k in keys_array)}), 
+                    array({', '.join(f"'{i}'" for i in item_array)}))
+            """
+            
+            # Execute the insert query
+            self.cursor.execute(insert_query)
+
+            print(f"✅ Successfully logged operation to oplog: {keys_array}, {item_array}")
+        except Exception as e:
+            print(f"❌ Error logging operation: {e}")
+
+
+    def load_timecache(self, recreate=False):
+        """
+        Load the timestamp cache from the database table into the timestamp_cache dictionary.
+        """
+        if recreate:
+            hive_system.build_timestamp_cache(key,recreate)
+            print("✅ Loaded timestamp cache from dumped data.")
+            return
+        try:
+            load_query = "SELECT key_tuple, custom_timestamp FROM timestamp_cache_table"
+            self.cursor.execute(load_query)
+            rows = self.cursor.fetchall()
+
+            for row in rows:
+                key_str, timestamp = row
+                # Convert key_str back to tuple using eval() (careful with eval)
+                key_tuple = eval(key_str)
+                self.timestamp_cache[key_tuple] = timestamp
+                
+            print("✅ Successfully loaded timecache from database.")
+
+        except Exception as e:
+            print(f"❌ Error loading timecache: {e}")
+
+
 
 
 if __name__ == "__main__":
     # Create a Hive system instance
     hive_system = HiveSystem()
-    
+
+    hive_system.connect()
+    recreate = False
+    key = ["student_id", "course_id"]
+    set_attr = ["grade", "roll_no"]
+
     # Load data from CSV
-    hive_system.load_data_from_csv("/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades.csv",False)
+    hive_system.load_data_from_csv("/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades.csv",recreate)
     
     # Set the table name and extract schema (this will populate self.table_name and self.all_columns)
     hive_system.set_table("student_course_grades")  # <-- Add this
+    hive_system.create_oplog_table(recreate)
+
+    
+    hive_system.build_timestamp_cache(key)
 
     # Process commands from a test case file
     test_file = "/home/sohith/Desktop/nosql/project/UniLog/hive/testcase.in"
-    set_attr = "grade" 
+     
+    
     try:
         with open(test_file, 'r') as f:
             commands = f.readlines()
@@ -631,7 +701,9 @@ if __name__ == "__main__":
             command = command.strip()
             if command:
                 print(f"Processing command: {command}")
-                hive_system.process_command(command, set_attr)
-                
+                hive_system.process_command(command, set_attr)   
     except Exception as e:
         print(f"Error processing test case file: {e}")
+    finally:
+        hive_system.disconnect()
+    
