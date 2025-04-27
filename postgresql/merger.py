@@ -1,7 +1,6 @@
-from .operations import set_row, get_row
-from .schema_utils import get_primary_keys
-from .db import get_connection
-from datetime import datetime, timezone
+from operations import set_row, get_row
+from schema_utils import get_primary_keys
+from db import get_connection
 
 def merge_log_operations(log_entries):
     for entry in log_entries:
@@ -12,7 +11,7 @@ def merge_log_operations(log_entries):
         keys = entry.get("keys", {})
         item = entry.get("item", {})
         full_row = {**keys, **item}
-        external_ts = datetime.fromtimestamp(entry["timestamp"], tz=timezone.utc)
+        external_ts = int(entry["timestamp"])
 
         conn = get_connection()
         cur = conn.cursor()
@@ -35,7 +34,8 @@ def merge_log_operations(log_entries):
             update_needed = True 
 
         if update_needed:
-            set_row(table_name, full_row)
+            # Call set_row with the timestamp as integer
+            set_row(table_name, full_row, external_ts)
 
         cur.close()
         conn.close()

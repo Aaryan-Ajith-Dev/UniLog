@@ -1,2 +1,2 @@
 mongo/.env
-postresql/.env
+postgresql/.env

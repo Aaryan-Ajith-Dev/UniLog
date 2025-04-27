@@ -5,7 +5,7 @@ import os
 def get_connection():
     load_dotenv()
     dbname=os.environ.get("DBNAME")
-    user=os.environ.get("USER")
+    user=os.environ.get("DBUSER")
     password=os.environ.get("PASSWORD")
     port=os.environ.get("PORT")
     if not dbname or not user or not password or not port:

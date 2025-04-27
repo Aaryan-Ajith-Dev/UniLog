@@ -15,16 +15,17 @@ class SQL:
         create_table(self.table_name, csv_path)
 
     def create_log_table(self):
+        """Create log table for the specified table."""
         create_log_table(self.table_name)
 
-    def set(self, keys, item):
+    def set(self, keys, item, action_time):
         """Perform a SET operation (insert/update) and log it."""
         full_row = {**keys, **item}
-        set_row(self.table_name, full_row)
+        set_row(self.table_name, full_row, action_time)
 
-    def get(self, keys):
+    def get(self, keys, action_time):
         """Perform a GET operation and log it."""
-        return get_row(self.table_name, keys)
+        return get_row(self.table_name, keys, action_time)
 
     def merge(self, external_logs):
         """Merge SET operations from external log entries."""
@@ -39,6 +40,20 @@ class SQL:
         cur.execute(f"SELECT * FROM {table_name}")
         rows = cur.fetchall()
 
+        for row in rows:
+            print(row)
+
+        cur.close()
+
+    def show_log_table(self):
+        """Prints the contents of the log table for the specified table."""
+        log_table_name = f"{self.table_name}_log"
+        
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM {log_table_name}")
+        rows = cur.fetchall()
+
+        print(f"Contents of the log table ({log_table_name}):")
         for row in rows:
             print(row)
 
