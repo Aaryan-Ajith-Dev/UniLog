@@ -92,8 +92,6 @@ def process_command(command: str, set_attr: list, systems,key):
                 systems[system].set(key_tuple, value_tuple, set_attr, timestamp=timestamp)
             
             if system == "SQL":
-                print({key: value for key, value in zip(key, key_tuple)},
-                    {key: value for key, value in zip(set_attr, value_tuple)})
                 systems[system].set({key: value for key, value in zip(key, key_tuple)},
                     {key: value for key, value in zip(set_attr, value_tuple)},timestamp)
             
@@ -111,7 +109,6 @@ def process_command(command: str, set_attr: list, systems,key):
                 systems[system].get(key_tuple, timestamp=timestamp)
             
             if system == "SQL":
-                print({key: value for key, value in zip(key, key_tuple)})
                 systems[system].get({key: value for key, value in zip(key, key_tuple)},timestamp)
 
             if system == "MONGO":

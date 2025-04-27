@@ -1,11 +1,8 @@
-import csv
-import os
-import re
 import ast
 import tempfile
 import pandas as pd
 from pyhive import hive
-from typing import List, Dict, Tuple, Optional, Any, Union
+from typing import List, Dict
 
 class HiveConnection:
     """
@@ -134,7 +131,6 @@ class TimestampCache:
             conn.execute(query)
             results = conn.fetch_all()
             
-            print(results)
             
             for row in results:
                 key = tuple(str(val) for val in row[:-1])
@@ -143,11 +139,11 @@ class TimestampCache:
                 if time_stamp > val:
                     self.set(key, time_stamp)
                     
-            print("✅ Timestamp cache initialized with dumped data.")
+            print("-----Timestamp cache initialized with dumped data.")
             print(f"Cached {len(self.cache)} prime key combinations.")
             
         except Exception as e:
-            print(f"❌ Failed to build timestamp cache: {e}")
+            print(f"-----Failed to build timestamp cache: {e}")
 
 
 class OplogManager:
@@ -192,11 +188,11 @@ class OplogManager:
             """
 
             self.conn.execute(create_table_query)
-            print("✅ Successfully created the oplog table.")
+            print("-----Successfully created the oplog table.")
             return True
             
         except Exception as e:
-            print(f"❌ Error creating oplog table: {e}")
+            print(f"-----Error creating oplog table: {e}")
             return False
             
     def log_entry(self, operation: str, timestamp: int, table_name: str, 
@@ -236,11 +232,11 @@ class OplogManager:
             
             # Execute the insert query
             self.conn.execute(insert_query)
-            print(f"✅ Successfully logged operation to oplog: {keys_array}, {item_array}")
+            print(f"-----Successfully logged operation to oplog: {keys_array}, {item_array}")
             return True
             
         except Exception as e:
-            print(f"❌ Error logging operation: {e}")
+            print(f"-----Error logging operation: {e}")
             return False
             
     def get_oplog(self) -> List[Dict]:
@@ -275,7 +271,7 @@ class OplogManager:
             return oplog_data
 
         except Exception as e:
-            print(f"❌ Error fetching oplog data: {e}")
+            print(f"-----Error fetching oplog data: {e}")
             return []
             
             
@@ -302,7 +298,7 @@ class OplogManager:
                         key = key.split('.')[-1]
                     kv_dict[key] = value.strip()
         except Exception as e:
-            print(f"❌ Error parsing keys/items: {e}")
+            print(f"-----Error parsing keys/items: {e}")
         return kv_dict
 
 
@@ -428,46 +424,14 @@ class TableManager:
             # Drop staging table
             self.conn.execute("DROP TABLE IF EXISTS student_course_grades_staging")
 
-            print(f"✅ Successfully loaded data from {csv_file} into Hive table 'student_course_grades'")
+            print(f"-----Successfully loaded data from {csv_file} into Hive table 'student_course_grades'")
             return True
 
         except Exception as e:
-            print(f"❌ Error loading data: {e}")
+            print(f"-----Error loading data: {e}")
             return False
 
 
-class OperationParser:
-    """
-    Class to parse different types of operations.
-    """
-     
-    @staticmethod
-    def parse_generic_hive_op(operation_str: str):
-        """
-        Parse generic HIVE.SET or HIVE.GET operation.
-        
-        Args:
-            operation_str (str): Operation string
-            
-        Returns:
-            tuple: Parsed operation components
-        """
-        operation_str = operation_str.strip()
-
-        # Match SET ((k1, k2, ...), v1, v2, ..., vm)
-        set_match = re.match(r"SET\s*\(\(\s*(.*?)\s*\)\s*,\s*(.*)\)", operation_str)
-        if set_match:
-            keys = tuple(part.strip() for part in set_match.group(1).split(","))
-            values = tuple(part.strip() for part in set_match.group(2).split(","))
-            return ("SET", keys, values)
-
-        # Match GET (k1, k2, ...)
-        get_match = re.match(r"GET\s*\(\s*(.*?)\s*\)", operation_str)
-        if get_match:
-            keys = tuple(part.strip() for part in get_match.group(1).split(","))
-            return ("GET", keys, None)
-
-        return None
 
 
 class HiveSystem:
@@ -487,7 +451,6 @@ class HiveSystem:
         self.timestamp_cache = TimestampCache()
         self.oplog_manager = None  # Initialize after connection
         self.table_manager = None  # Initialize after connection
-        self.parser = OperationParser()
         
     def connect(self):
         """Connect to Hive and initialize components"""
@@ -601,7 +564,6 @@ class HiveSystem:
             query = f"SELECT * FROM {self.table_manager.table_name} WHERE {where_clause}"
             self.connection.execute(query)
             existing_row = self.connection.fetch_one()
-            print(existing_row)
 
             # Initialize all values dict with key values
             all_values_dict = dict(zip(key_columns, key_tuple))
@@ -615,13 +577,12 @@ class HiveSystem:
                 for col, val in zip(all_columns, existing_row):
                     if col not in key_columns and col != 'custom_timestamp':
                         all_values_dict[col] = val
-                        print(all_values_dict)
 
                 # If timestamp in cache is greater than the one provided, skip
                 cache_time = self.timestamp_cache.get(key_tuple, -1)
                 
                 if timestamp <= cache_time:
-                    print(f"⚠️ Skipping update. Timestamp {timestamp} is not newer than the cached timestamp {cache_time} for key {key_tuple}.")
+                    print(f"-----Skipping update. Timestamp {timestamp} is not newer than the cached timestamp {cache_time} for key {key_tuple}.")
                     return False
 
             # Set new values for the specified set_attrs
@@ -653,11 +614,11 @@ class HiveSystem:
             # Update timestamp cache
             self.timestamp_cache.set(key_tuple, timestamp)
 
-            print(f"✅ Successfully set {set_attrs} = {values} for key {key_tuple} with timestamp {timestamp}")
+            print(f"-----Successfully set {set_attrs} = {values} for key {key_tuple} with timestamp {timestamp}")
             return True
 
         except Exception as e:
-            print(f"❌ Error setting data: {e}")
+            print(f"-----Error setting data: {e}")
             return False
     
     def merge(self, system_name, external_oplog):
@@ -689,7 +650,7 @@ class HiveSystem:
                 
                 # Validate target table
                 if table != self.table_manager.table_name:
-                    print(f"❌ Table mismatch. Expected {self.table_manager.table_name}, got {table}.")
+                    print(f"-----Table mismatch. Expected {self.table_manager.table_name}, got {table}.")
                     continue    
 
                 attribute_names = [col.split('.')[-1] for col in self.table_manager.all_columns[:len(keys)]]
@@ -707,61 +668,13 @@ class HiveSystem:
                     if success:
                         applied_count += 1
 
-            print(f"✅ Merge complete. Applied {applied_count} newer SET operations from {system_name}.")
+            print(f"-----Merge complete. Applied {applied_count} newer SET operations from {system_name}.")
             return True
 
         except Exception as e:
-            print(f"❌ Error merging with {system_name}: {e}")
+            print(f"-----Error merging with {system_name}: {e}")
             return False
     
-    def process_command(self, command, set_attr):
-        """
-        Process a command from external source.
-        
-        Args:
-            command (str): Command string
-            set_attr (list): Default attributes to set
-            
-        Returns:
-            bool: Success status
-        """
-        try:
-            command = command.strip()
-
-            # Handle HIVE.MERGE
-            if command.startswith("HIVE.MERGE"):
-                system_name = command.split("(")[1].split(")")[0].strip()
-                return self.merge(system_name)
-
-            # Split timestamp and operation
-            parts = command.split(",", 1)
-            if len(parts) < 2:
-                print(f"Invalid command format: {command}")
-                return False
-
-            timestamp = int(parts[0].strip())
-            operation = parts[1].strip()
-
-            if operation.startswith("HIVE."):
-                parsed = self.parser.parse_generic_hive_op(operation[5:])
-                if not parsed:
-                    print(f"Failed to parse HIVE operation: {operation}")
-                    return False
-
-                op_type, key_tuple, value_tuple = parsed
-                print(f"Parsed operation: {op_type}, keys: {key_tuple}, values: {value_tuple}, timestamp: {timestamp}")
-
-                if op_type == "SET":
-                    return self.set(key_tuple, value_tuple, set_attr, timestamp=timestamp)
-                elif op_type == "GET":
-                    self.get(key_tuple, timestamp=timestamp)
-                    return True
-
-            return False
-
-        except Exception as e:
-            print(f"Error processing command: {command} - {e}")
-            return False
     
     def get_oplog(self):
         """Get the operation log"""
