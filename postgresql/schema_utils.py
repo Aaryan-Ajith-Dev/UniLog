@@ -1,4 +1,4 @@
-from db import get_connection
+from .db import get_connection
 
 def get_table_schema(table_name):
     conn = get_connection()

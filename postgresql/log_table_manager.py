@@ -1,5 +1,5 @@
-from db import get_connection
-from schema_utils import get_table_schema
+from .db import get_connection
+from .schema_utils import get_table_schema
 
 def create_log_table(table_name):
     schema = get_table_schema(table_name)
