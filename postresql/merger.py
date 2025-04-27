@@ -32,7 +32,7 @@ def merge_log_operations(log_entries):
             if external_ts > existing_ts:
                 update_needed = True
         else:
-            update_needed = True 
+            update_needed = True  # No existing row → must insert
 
         if update_needed:
             set_row(table_name, full_row)
