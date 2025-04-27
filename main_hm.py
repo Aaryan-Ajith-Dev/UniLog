@@ -67,7 +67,7 @@ def process_command(command: str, set_attr: list, systems,key):
             system_get = merge_match.group(1).upper()
             system_give = merge_match.group(2).upper()
             systems[system_get].merge(system_give, systems[system_give].get_oplog())
-            
+            return True
                 
 
         # Handle normal timestamped operations
