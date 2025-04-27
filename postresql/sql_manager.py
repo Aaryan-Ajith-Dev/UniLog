@@ -1,0 +1,49 @@
+from db import get_connection
+from schema_utils import get_primary_keys, get_table_schema
+from operations import set_row, get_row
+from merger import merge_log_operations
+from log_table_manager import create_log_table
+from create_database import create_table
+
+class SQL:
+    def __init__(self, table_name):
+        self.table_name = table_name
+        self.conn = get_connection()
+
+    def create_table(self, csv_path):
+        """Create the table and insert CSV data."""
+        create_table(self.table_name, csv_path)
+
+    def create_log_table(self):
+        create_log_table(self.table_name)
+
+    def set(self, keys, item):
+        """Perform a SET operation (insert/update) and log it."""
+        full_row = {**keys, **item}
+        set_row(self.table_name, full_row)
+
+    def get(self, keys):
+        """Perform a GET operation and log it."""
+        return get_row(self.table_name, keys)
+
+    def merge(self, external_logs):
+        """Merge SET operations from external log entries."""
+        merge_log_operations(external_logs)
+
+    def show_table(self, table_name=None):
+        """Prints the contents of the specified table."""
+        if table_name is None:
+            table_name = self.table_name
+
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM {table_name}")
+        rows = cur.fetchall()
+
+        for row in rows:
+            print(row)
+
+        cur.close()
+
+    def close(self):
+        """Close the database connection."""
+        self.conn.close()
