@@ -188,7 +188,7 @@ class OplogManager:
                 item ARRAY<STRING>   -- Use array for item
             )
             STORED AS TEXTFILE
-            LOCATION 'docker-hive-hive-server-1:/tmp/oplog/'
+            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/oplog/'
             """
 
             self.conn.execute(create_table_query)
@@ -380,7 +380,7 @@ class TableManager:
                 custom_timestamp INT
             )
             STORED AS TEXTFILE
-            LOCATION 'docker-hive-hive-server-1:/tmp/student_course_grades/'
+            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/student_course_grades/'
             """
             self.conn.execute(create_table_query)
 
@@ -398,7 +398,7 @@ class TableManager:
                 "separatorChar" = ","
             )
             STORED AS TEXTFILE
-            LOCATION 'docker-hive-hive-server-1:/tmp/student_course_grades_staging/'
+            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/student_course_grades_staging/'
             TBLPROPERTIES ("skip.header.line.count"="1")
             """
             self.conn.execute(create_staging_table_query)
@@ -771,7 +771,7 @@ def main():
         set_attr = ["grade", "roll_no"]
 
         # Load data from CSV
-        csv_path = "docker-hive-hive-server-1:/tmp/student_course_grades.csv"
+        csv_path = "/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades.csv"
         status = hive_system.load_data_from_csv(csv_path, recreate)
         print("Loading status",status)
         # Set the table name and extract schema
