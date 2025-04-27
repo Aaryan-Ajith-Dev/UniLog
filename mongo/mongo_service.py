@@ -33,7 +33,7 @@ class MongoService:
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    def load_data(self, csv_file_path="cleaned_grades.csv", table_name="grades"):
+    def load_data(self, csv_file_path="/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades_head.csv", table_name="grades"):
         """
         Loads data from a CSV file into the specified MongoDB collection.
         Assumes the first row of the CSV contains headers.
@@ -133,7 +133,7 @@ class MongoService:
             print(f"Error getting item from '{table}': {e}")
             return None
     
-    def get_oplog(self, limit=10, query=None):
+    def get_oplog(self, limit=None, query=None):
         """
         Retrieves entries from the MongoDB oplog (operation log).
         Requires connecting to a member of a replica set.
@@ -150,7 +150,10 @@ class MongoService:
         try:
             oplog = self.db[self.oplog_name]
             oplog_query = query if query is not None else {}
-            return list(oplog.find(oplog_query).sort('timestamp', pymongo.ASCENDING).limit(limit))
+            if limit is not None:
+                return list(oplog.find(oplog_query).sort('timestamp', pymongo.ASCENDING).limit(limit))
+            else:
+                return list(oplog.find(oplog_query).sort('timestamp', pymongo.ASCENDING))
         except Exception as e:
             print(f"Error accessing oplog: {e}")
             print("Ensure you are connected to a member of a MongoDB replica set.")
@@ -236,33 +239,34 @@ class MongoService:
 if __name__ == "__main__":
     mongo_service = MongoService()  # You can change the default db name
 
-    # mongo_service.drop_collection(table_name=mongo_service.oplog_name)
+    mongo_service.drop_collection(table_name="grades")
+    mongo_service.drop_collection(table_name=mongo_service.oplog_name)
 
-    # # Load data from a CSV
-    # loaded_count = mongo_service.load_data("../dataset/cleaned_grades.csv", table_name="grades")
-    # if loaded_count is not None:
-    #     print(f"Loaded {loaded_count} records into 'grades'.")
+    # Load data from a CSV
+    loaded_count = mongo_service.load_data(table_name="student_course_grades")
+    if loaded_count is not None:
+        print(f"Loaded {loaded_count} records into 'student_course_grades'.")
 
     # print(mongo_service.db[mongo_service.oplog_name].index_information())
 
-    oplog_entries = mongo_service.get_oplog(limit=10)
-    if oplog_entries:
-        print("\nLatest Oplog Entries:")
-        for entry in oplog_entries:
-            print(entry)
+    # oplog_entries = mongo_service.get_oplog(limit=10)
+    # if oplog_entries:
+    #     print("\nLatest Oplog Entries:")
+    #     for entry in oplog_entries:
+    #         print(entry)
 
     keys = {
-        "Student ID": "8bc6bb96e00acb88ee954fc1702afb48a2d1ea05309d90f3dfedb3a155a6d06e",
-        "Subject Code / Name": "IT 989/20 / Thesis / Research hours"
+        "student_id": "SID1033",
+        "course_id": "CSE016"
     }
 
     # # Set a single item
-    # set_result = mongo_service.set_item(keys, {"Obtained Marks/Grade": "B+"}, table="grades")
-    # print(f"Set result for student 105: {set_result}")
+    # set_result = mongo_service.set_item(keys, {"grade": "B+"}, table="student_course_grades",timestamp=1)
+    # print(f"Set result for student SID1033: {set_result}")
 
-    # # Get a single item
-    # grade_101 = mongo_service.get_item(keys, table="grades")
-    # print(f"Grade for student: {grade_101}")
+    # Get a single item
+    # grade_1033 = mongo_service.get_item(keys, table="student_course_grades",timestamp=2)
+    # print(f"Grade for student: {grade_1033}")
 
     # # Merge operations
     # merge_operations = [

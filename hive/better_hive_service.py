@@ -278,9 +278,11 @@ class OplogManager:
             print(f"❌ Error fetching oplog data: {e}")
             return []
             
+            
     def _parse_key_value_list(self, kv_list_str):
         """
-        Parse a key-value list string into a dictionary.
+        Parse a key-value list string into a dictionary, 
+        keeping only column names (not table prefixes).
         
         Args:
             kv_list_str (str): String representation of key-value pairs
@@ -294,10 +296,15 @@ class OplogManager:
             for pair in kv_list:
                 if ":" in pair:
                     key, value = pair.split(":", 1)
-                    kv_dict[key.strip()] = value.strip()
+                    key = key.strip()
+                    # If key has a '.', keep only the part after the last '.'
+                    if '.' in key:
+                        key = key.split('.')[-1]
+                    kv_dict[key] = value.strip()
         except Exception as e:
             print(f"❌ Error parsing keys/items: {e}")
         return kv_dict
+
 
 
 class TableManager:
@@ -679,6 +686,7 @@ class HiveSystem:
                 
                 # Validate target table
                 if table != self.table_manager.table_name:
+                    print(f"❌ Table mismatch. Expected {self.table_manager.table_name}, got {table}.")
                     continue    
 
                 attribute_names = [col.split('.')[-1] for col in self.table_manager.all_columns[:len(keys)]]
@@ -766,7 +774,7 @@ def main():
         hive_system.connect()
         recreate = True
         key = ["student_id", "course_id"]
-        set_attr = ["grade", "roll_no"]
+        set_attr = ["grade"]
 
         # Load data from CSV
         csv_path = "/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades.csv"
@@ -779,19 +787,19 @@ def main():
         hive_system.build_timestamp_cache(key)
 
         # Process commands from a test case file
-        test_file = "/home/sohith/Desktop/nosql/project/UniLog/testcase.in"
+        # test_file = "/home/sohith/Desktop/nosql/project/UniLog/testcase.in"
          
-        try:
-            with open(test_file, 'r') as f:
-                commands = f.readlines()
+        # try:
+        #     with open(test_file, 'r') as f:
+        #         commands = f.readlines()
                 
-            for command in commands:
-                command = command.strip()
-                if command:
-                    print(f"Processing command: {command}")
-                    hive_system.process_command(command, set_attr)   
-        except Exception as e:
-            print(f"Error processing test case file: {e}")
+        #     for command in commands:
+        #         command = command.strip()
+        #         if command:
+        #             print(f"Processing command: {command}")
+        #             hive_system.process_command(command, set_attr)   
+        # except Exception as e:
+        #     print(f"Error processing test case file: {e}")
             
     except Exception as e:
         print(f"System error: {e}")
