@@ -95,7 +95,12 @@ def process_command(command: str, set_attr: list, systems):
                 systems[system].set
             
             if system == "MONGO":
-                systems[system].set_item
+                systems[system].set_item(
+                    {key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
+                    {key: value for key, value in zip(set_attr, value_tuple)},
+                    table="student_course_grades",
+                    timestamp=timestamp
+                )
 
 
         elif op_type == "GET":
@@ -106,7 +111,11 @@ def process_command(command: str, set_attr: list, systems):
                 systems[system].get
 
             if system == "MONGO":
-                systems[system].get_item
+                systems[system].get_item(
+                    {key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
+                    timestamp=timestamp,
+                    table="student_course_grades"
+                )
 
         return False
 
