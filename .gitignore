@@ -1,2 +1,3 @@
 mongo/.env
 ./postgresql/.env
+./postgresql/__pycache__
