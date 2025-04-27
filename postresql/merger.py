@@ -1,6 +1,6 @@
-from operations import set_row, get_row
-from schema_utils import get_primary_keys
-from db import get_connection
+from .operations import set_row, get_row
+from .schema_utils import get_primary_keys
+from .db import get_connection
 from datetime import datetime, timezone
 
 def merge_log_operations(log_entries):

@@ -1,9 +1,9 @@
-from db import get_connection
-from schema_utils import get_primary_keys, get_table_schema
-from operations import set_row, get_row
-from merger import merge_log_operations
-from log_table_manager import create_log_table
-from create_database import create_table
+from .db import get_connection
+from .schema_utils import get_primary_keys, get_table_schema
+from .operations import set_row, get_row
+from .merger import merge_log_operations
+from .log_table_manager import create_log_table
+from .create_database import create_table
 
 class SQL:
     def __init__(self, table_name):

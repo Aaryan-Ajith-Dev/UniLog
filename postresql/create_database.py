@@ -1,6 +1,5 @@
-import psycopg2
 import pandas as pd
-from db import get_connection
+from .db import get_connection
 
 def create_table(table_name, csv_path):
     """

@@ -1,6 +1,6 @@
-from db import get_connection
-from schema_utils import get_primary_keys
-from log_table_manager import create_log_table
+from .db import get_connection
+from .schema_utils import get_primary_keys
+from .log_table_manager import create_log_table
 
 def set_row(table_name, row_dict):
     create_log_table(table_name)
