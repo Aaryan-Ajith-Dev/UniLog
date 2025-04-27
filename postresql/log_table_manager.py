@@ -5,7 +5,7 @@ def create_log_table(table_name):
     schema = get_table_schema(table_name)
     log_table = f"{table_name}_log"
 
-    col_defs = ", ".join([f"{col} TEXT" for col, _ in schema])  # TEXT for simplicity
+    col_defs = ", ".join([f"{col} TEXT" for col, _ in schema]) 
     extra_cols = "action TEXT, action_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP"
     ddl = f"""
     CREATE TABLE IF NOT EXISTS {log_table} (
