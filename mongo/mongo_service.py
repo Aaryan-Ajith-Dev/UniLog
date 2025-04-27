@@ -38,7 +38,7 @@ class MongoService:
                     capped=True,
                     size=1048576,  # Maximum size of the collection in bytes (e.g., 1MB)
                 )
-                # self.db[self.oplog_name].create_index({ "timestamp": 1, "_source": 1 }, unique=True)
+
                 print(f"Capped collection '{self.oplog_name}' created successfully.")
 
         except Exception as e:
