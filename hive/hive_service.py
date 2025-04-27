@@ -617,7 +617,7 @@ if __name__ == "__main__":
     hive_system.build_timestamp_cache(key)
 
     # Process commands from a test case file
-    test_file = "/home/sohith/Desktop/nosql/project/UniLog/hive/testcase.in"
+    test_file = "/home/sohith/Desktop/nosql/project/UniLog/testcase.in"
      
     
     try:

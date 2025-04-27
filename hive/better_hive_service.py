@@ -650,19 +650,20 @@ class HiveSystem:
             print(f"❌ Error setting data: {e}")
             return False
     
-    def merge(self, system_name):
+    def merge(self, system_name, external_oplog):
         """
         Merge with another system based on oplog.
         
         Args:
             system_name (str): Name of system to merge with
+            external_oplog (list): Oplog entries from the external system
             
         Returns:
             bool: Success status
         """
         try:
             # Example: Load oplog from external source (replace with real loader)
-            external_oplog = [{'timestamp': 1, 'operation': 'SET', 'table': 'student_course_grades', 'keys': {'student_id': 'SID103', 'course_id':'CSE016'}, 'item': {'grade': 'B'}}]
+            # external_oplog = [{'timestamp': 1, 'operation': 'SET', 'table': 'student_course_grades', 'keys': {'student_id': 'SID103', 'course_id':'CSE016'}, 'item': {'grade': 'B'}}]
 
             applied_count = 0
 
@@ -759,10 +760,7 @@ class HiveSystem:
 def main():
     """Main function to run the Hive system"""
     # Create a Hive system instance
-    hive_system = HiveSystem(
-        host="10.255.255.254",
-        database='student_db'
-    )
+    hive_system = HiveSystem()
     
     try:
         hive_system.connect()
@@ -781,7 +779,7 @@ def main():
         hive_system.build_timestamp_cache(key)
 
         # Process commands from a test case file
-        test_file = "/home/aaryan/nosql/UniLog/testcase.in"
+        test_file = "/home/sohith/Desktop/nosql/project/UniLog/testcase.in"
          
         try:
             with open(test_file, 'r') as f:
