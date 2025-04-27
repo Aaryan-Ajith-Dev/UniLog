@@ -188,7 +188,7 @@ class OplogManager:
                 item ARRAY<STRING>   -- Use array for item
             )
             STORED AS TEXTFILE
-            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/oplog/'
+            LOCATION 'docker-hive-hive-server-1:/tmp/oplog/'
             """
 
             self.conn.execute(create_table_query)
@@ -380,7 +380,7 @@ class TableManager:
                 custom_timestamp INT
             )
             STORED AS TEXTFILE
-            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/student_course_grades/'
+            LOCATION 'docker-hive-hive-server-1:/tmp/student_course_grades/'
             """
             self.conn.execute(create_table_query)
 
@@ -398,7 +398,7 @@ class TableManager:
                 "separatorChar" = ","
             )
             STORED AS TEXTFILE
-            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/student_course_grades_staging/'
+            LOCATION 'docker-hive-hive-server-1:/tmp/student_course_grades_staging/'
             TBLPROPERTIES ("skip.header.line.count"="1")
             """
             self.conn.execute(create_staging_table_query)
@@ -759,18 +759,21 @@ class HiveSystem:
 def main():
     """Main function to run the Hive system"""
     # Create a Hive system instance
-    hive_system = HiveSystem()
+    hive_system = HiveSystem(
+        host="10.255.255.254",
+        database='student_db'
+    )
     
     try:
         hive_system.connect()
-        recreate = False
+        recreate = True
         key = ["student_id", "course_id"]
         set_attr = ["grade", "roll_no"]
 
         # Load data from CSV
-        csv_path = "/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades.csv"
-        hive_system.load_data_from_csv(csv_path, recreate)
-        
+        csv_path = "docker-hive-hive-server-1:/tmp/student_course_grades.csv"
+        status = hive_system.load_data_from_csv(csv_path, recreate)
+        print("Loading status",status)
         # Set the table name and extract schema
         hive_system.set_table("student_course_grades")
         hive_system.create_oplog_table(recreate)
@@ -778,7 +781,7 @@ def main():
         hive_system.build_timestamp_cache(key)
 
         # Process commands from a test case file
-        test_file = "/home/sohith/Desktop/nosql/project/UniLog/hive/testcase.in"
+        test_file = "/home/aaryan/nosql/UniLog/testcase.in"
          
         try:
             with open(test_file, 'r') as f:
