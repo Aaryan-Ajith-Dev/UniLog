@@ -19,13 +19,17 @@ def main():
         sql_system.create_table("/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades_head.csv")
         sql_system.create_log_table()
         print("Created tables in PostgreSQL.")
-        
-        elog = hive_system.oplog_manager.get_oplog()
+
+        elog = sql_system.get_log()
+        # elog = hive_system.oplog_manager.get_oplog()
         print("Oplog fetched successfully.")
 
-        status = sql_system.merge(elog)
-        sql_system.show_table()
-        sql_system.show_log_table()
+        status = hive_system.merge("PostgreSQL",elog)
+        print("Merge status:", status)
+        # status = sql_system.merge(elog)
+        # sql_system.show_table()
+        # sql_system.show_log_table()
+
 
             
     except Exception as e:

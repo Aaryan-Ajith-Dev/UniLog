@@ -591,9 +591,11 @@ class HiveSystem:
             if timestamp is None:
                 timestamp = 0
 
+            req_columns = key_columns + ['custom_timestamp']
+            req_tuple = key_tuple + (self.timestamp_cache.get(key_tuple, -1),)
             # Build WHERE clause to check for existing row
             where_clause = " AND ".join(
-                f"{col} = '{val}'" for col, val in zip(key_columns, key_tuple)
+                f"{col} = '{val}'" for col, val in zip(req_columns, req_tuple)
             )
 
             query = f"SELECT * FROM {self.table_manager.table_name} WHERE {where_clause}"
@@ -613,6 +615,7 @@ class HiveSystem:
                 for col, val in zip(all_columns, existing_row):
                     if col not in key_columns and col != 'custom_timestamp':
                         all_values_dict[col] = val
+                        print(all_values_dict)
 
                 # If timestamp in cache is greater than the one provided, skip
                 cache_time = self.timestamp_cache.get(key_tuple, -1)

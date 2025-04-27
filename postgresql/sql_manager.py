@@ -27,9 +27,9 @@ class SQL:
         """Perform a GET operation and log it."""
         return get_row(self.table_name, keys, action_time)
 
-    def merge(self, external_logs):
+    def merge(self, system_name, external_logs):
         """Merge SET operations from external log entries."""
-        merge_log_operations(external_logs)
+        merge_log_operations(system_name,external_logs)
 
     def show_table(self, table_name=None):
         """Prints the contents of the specified table."""
@@ -58,7 +58,7 @@ class SQL:
             print(row)
 
         cur.close()
-    def get_log(self):
+    def get_oplog(self):
         """Returns the log table records in a structured format for merging."""
         log_table_name = f"{self.table_name}_log"
 

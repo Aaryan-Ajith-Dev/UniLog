@@ -161,7 +161,7 @@ class MongoService:
 
 
 
-    def merge(self, other_oplog: list):
+    def merge(self,system_name, other_oplog: list):
         """
         Merge the custom MongoDB oplog with the operation log from another system (assumed to only contain SET).
         Executes each SET instruction from both logs starting from the timestamp of the
@@ -182,7 +182,7 @@ class MongoService:
             print("No operations found in the other oplog. Exiting.")
             return True
     
-        start_timestamp = sorted(other_oplog)[0].get("timestamp")
+        start_timestamp = sorted(other_oplog, key=lambda x: x.get('timestamp'))[0].get("timestamp")
         oplog = []
 
         oplog = self.get_oplog(query={"operation": "SET", 'timestamp': {'$gte': start_timestamp}})
@@ -202,7 +202,7 @@ class MongoService:
                 print(f"Executing: {operation}")
                 self.set_item(operation['keys'], operation['item'], operation['table'], operation['timestamp'],)
 
-        print("Merge operation completed.")
+        print(f"Merge operation completed with {system_name} system.")
         return True
     
     def drop_collection(self, table_name="grades"):

@@ -2,7 +2,7 @@ from .operations import set_row
 from .schema_utils import get_primary_keys
 from .db import get_connection
 
-def merge_log_operations(log_entries):
+def merge_log_operations(system_name,log_entries):
     # Step 1: Build a dictionary to hold the latest log for each unique keys
     latest_logs = {}
 
@@ -61,6 +61,8 @@ def merge_log_operations(log_entries):
 
         if update_needed:
             set_row(table_name, full_row, external_ts)
+
+        print(f"Merge operation completed with {system_name} system.")
 
         cur.close()
         conn.close()
