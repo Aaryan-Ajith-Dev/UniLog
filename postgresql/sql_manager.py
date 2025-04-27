@@ -58,6 +58,36 @@ class SQL:
             print(row)
 
         cur.close()
+    def get_log(self):
+        """Returns the log table records in a structured format for merging."""
+        log_table_name = f"{self.table_name}_log"
+
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM {log_table_name}")
+        rows = cur.fetchall()
+
+        colnames = [desc[0] for desc in cur.description]
+        primary_keys = get_primary_keys(self.table_name)
+
+        logs = []
+        for row in rows:
+            record = dict(zip(colnames, row))
+
+            # Separate into keys and item
+            keys = {k: record[k] for k in primary_keys if k in record}
+            item = {k: record[k] for k in record if k not in primary_keys and k not in ['action', 'action_time']}
+
+            structured_log = {
+                'timestamp': record['action_time'],
+                'operation': record['action'],
+                'table': self.table_name,
+                'keys': keys,
+                'item': item
+            }
+            logs.append(structured_log)
+
+        cur.close()
+        return logs
 
     def close(self):
         """Close the database connection."""

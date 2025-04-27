@@ -12,7 +12,7 @@ def main():
     op_log=mongo_system.get_oplog()
     print(op_log)
     sql_system.merge(op_log)
-    sql_system.show_table("students")
+    # sql_system.show_table("students")
     sql_system.show_log_table()
 
 if __name__=="__main__":
