@@ -95,7 +95,7 @@ class MongoService:
         return time.time()
 
 
-    def set_item(self, keys, item, table="grades", timestamp=None, log=True):
+    def set_item(self, keys, item, table="grades", timestamp=None, log=True, _source='local'):
         """
         Sets or updates an item in the specified MongoDB collection based on the key.
         'keys' is a dictionary containing the set of keys used for search
@@ -117,7 +117,7 @@ class MongoService:
         collection = self.db[table]
         try:
             print("timeseat:",timestamp)
-            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "SET", "table": table, "keys": keys, "item": item, "_source": "local"}
+            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "SET", "table": table, "keys": keys, "item": item, "_source": _source}
             if log:
                 self._log_operation(log_entry)
             result = collection.update_one(keys, {"$set": item}, upsert=True)
@@ -126,7 +126,7 @@ class MongoService:
             print(f"Error setting item in '{table}': {e}")
             return None
 
-    def get_item(self, keys, timestamp=None, table="grades", projection=None, log=True):
+    def get_item(self, keys, timestamp=None, table="grades", projection=None, log=True, _source="local"):
         """
         Retrieves a single item from the specified MongoDB collection based on the key.
         'keys' is a dictionary containing the set of keys used for search
@@ -136,7 +136,7 @@ class MongoService:
         """
         collection = self.db[table]
         try:
-            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "GET", "table": table, "keys": keys, "projection": projection, "_source": "local"}
+            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "GET", "table": table, "keys": keys, "projection": projection, "_source": _source}
             if log:
                 self._log_operation(log_entry)
             return collection.find_one(keys, projection)
@@ -226,7 +226,7 @@ class MongoService:
         for operation in oplog:
             if operation.get('_source') != 'local':
                 print(f"Executing: {operation}")
-                self.set_item(operation['keys'], operation['item'], operation['table'], operation['timestamp'],)
+                self.set_item(operation['keys'], operation['item'], operation['table'], operation['timestamp'], _source=operation["_source"])
 
         print(f"Merge operation completed with {system_name} system.")
         return True
@@ -348,7 +348,7 @@ if __name__ == "__main__":
             }
     ]
 
-    merge_results = mongo_service.merge("Stupidity", merge_operations)
+    merge_results = mongo_service.merge("Hive", merge_operations)
     print(f"Merge status: {merge_results}")
 
     mongo_service.close()
