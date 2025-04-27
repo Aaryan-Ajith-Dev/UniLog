@@ -1,5 +1,5 @@
 import pandas as pd
-from db import get_connection
+from .db import get_connection
 
 def create_table(table_name, csv_path):
     """
@@ -35,10 +35,10 @@ def create_table(table_name, csv_path):
                 INSERT INTO {table_name} (student_id, course_id, roll_no, email_id, grade)
                 VALUES (%s, %s, %s, %s, %s)
             """, (
-                row['student-ID'],
-                row['course-id'],
-                row['roll no'],
-                row['email ID'],
+                row['student_id'],
+                row['course_id'],
+                row['roll_no'],
+                row['email'],
                 row['grade']
             ))
 

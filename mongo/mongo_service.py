@@ -33,7 +33,7 @@ class MongoService:
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    def load_data(self, csv_file_path="/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades_head.csv", table_name="grades"):
+    def load_data(self, csv_file_path="./dataset/student_course_grades_head.csv", table_name="grades"):
         """
         Loads data from a CSV file into the specified MongoDB collection.
         Assumes the first row of the CSV contains headers.
