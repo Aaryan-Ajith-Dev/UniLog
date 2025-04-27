@@ -44,7 +44,7 @@ def parse_generic_op(operation_str: str):
 
     return None
 
-def process_command(command: str, set_attr: list, systems):
+def process_command(command: str, set_attr: list, systems,key):
     """
     Process a command string from external source.
 
@@ -92,12 +92,14 @@ def process_command(command: str, set_attr: list, systems):
                 systems[system].set(key_tuple, value_tuple, set_attr, timestamp=timestamp)
             
             if system == "SQL":
-                systems[system].set({key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
+                print({key: value for key, value in zip(key, key_tuple)},
+                    {key: value for key, value in zip(set_attr, value_tuple)})
+                systems[system].set({key: value for key, value in zip(key, key_tuple)},
                     {key: value for key, value in zip(set_attr, value_tuple)},timestamp)
             
             if system == "MONGO":
                 systems[system].set_item(
-                    {key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
+                    {key: value for key, value in zip(key, key_tuple)},
                     {key: value for key, value in zip(set_attr, value_tuple)},
                     table="student_course_grades",
                     timestamp=timestamp
@@ -109,11 +111,12 @@ def process_command(command: str, set_attr: list, systems):
                 systems[system].get(key_tuple, timestamp=timestamp)
             
             if system == "SQL":
-                systems[system].get({key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},timestamp)
+                print({key: value for key, value in zip(key, key_tuple)})
+                systems[system].get({key: value for key, value in zip(key, key_tuple)},timestamp)
 
             if system == "MONGO":
                 systems[system].get_item(
-                    {key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
+                    {key: value for key, value in zip(key, key_tuple)},
                     timestamp=timestamp,
                     table="student_course_grades"
                 )
@@ -129,8 +132,12 @@ def process_command(command: str, set_attr: list, systems):
 def main():
     """Main function to run the Hive system"""
     # Create a Hive system instance
+    recreate_hive = True
+    recreate_sql = True
+    recreate_mongo = True
+
     hive_system = HiveSystem()
-    mongo_system = MongoService()
+    mongo_system = MongoService(recreate=recreate_mongo,table="student_course_grades")
     sql_system = SQL("student_course_grades")
 
     systems = {
@@ -140,9 +147,8 @@ def main():
     }
 
     key = ["student_id", "course_id"]
-    set_attr = ["grade","email"]
-
-    recreate_hive = True
+    set_attr = ["grade"]
+    
     
     try:
         hive_system.connect()
@@ -153,10 +159,12 @@ def main():
         hive_system.create_oplog_table(recreate_hive)
         hive_system.build_timestamp_cache(key)
 
-        mongo_system.load_data(table_name="student_course_grades")
 
-        sql_system.create_table("/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades_head.csv")
-        sql_system.create_log_table()
+        mongo_system.load_data()
+
+        
+        sql_system.create_table("/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades_head.csv",recreate_sql)
+        sql_system.create_log_table(recreate_sql)
         print("Connected to Hive,MongoDB and PostgreSQL systems.")
 
         test_file = "/home/sohith/Desktop/nosql/project/UniLog/testcase.in"
@@ -168,13 +176,14 @@ def main():
             command = command.strip()
             if command:
                 print(f"Processing command: {command}")
-                process_command(command, set_attr,systems)   
+                process_command(command, set_attr,systems,key)   
 
             
     except Exception as e:
         print(f"System error: {e}")
     finally:
         hive_system.disconnect()
+        mongo_system.close()
 
 
 if __name__ == "__main__":

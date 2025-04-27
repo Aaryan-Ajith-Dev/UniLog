@@ -21,6 +21,7 @@ def set_row(table_name, row_dict, action_time):
     WHERE {where_clause} AND action = 'SET'
     ORDER BY action_time DESC LIMIT 1
     """, pk_values)
+    
     existing_action_time = cur.fetchone()
 
     if existing_action_time:
@@ -78,7 +79,6 @@ def get_row(table_name, filters, action_time):
     Perform the GET operation on the specified table and log it.
     The action_time is passed as a Unix timestamp integer.
     """
-    create_log_table(table_name)
     where_clause = " AND ".join([f"{col} = %s" for col in filters])
     values = list(filters.values())
 
@@ -86,11 +86,12 @@ def get_row(table_name, filters, action_time):
     cur = conn.cursor()
     
     # Check the most recent action_time for the GET operation
-    cur.execute(f"""
+    query = f"""
     SELECT action_time FROM {table_name}_log 
     WHERE {where_clause} AND action = 'GET'
     ORDER BY action_time DESC LIMIT 1
-    """, values)
+    """
+    cur.execute(query, values)
     
     # Get the latest action_time
     existing_action_time = cur.fetchone()

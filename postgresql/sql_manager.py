@@ -10,13 +10,13 @@ class SQL:
         self.table_name = table_name
         self.conn = get_connection()
 
-    def create_table(self, csv_path):
+    def create_table(self, csv_path, recreate=False):
         """Create the table and insert CSV data."""
-        create_table(self.table_name, csv_path)
+        create_table(self.table_name, csv_path,recreate)
 
-    def create_log_table(self):
+    def create_log_table(self,recreate=False):
         """Create log table for the specified table."""
-        create_log_table(self.table_name)
+        create_log_table(self.table_name,recreate)
 
     def set(self, keys, item, action_time):
         """Perform a SET operation (insert/update) and log it."""

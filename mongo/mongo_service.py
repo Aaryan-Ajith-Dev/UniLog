@@ -8,7 +8,7 @@ import time
 
 
 class MongoService:
-    def __init__(self, db_name="project", oplog_name="oplog"):
+    def __init__(self, db_name="project", oplog_name="oplog", table=None, recreate=False):
         load_dotenv()
         mongo_uri = os.environ.get("MONGO_URI")
         if not mongo_uri:
@@ -16,12 +16,23 @@ class MongoService:
         self.client = MongoClient(mongo_uri)
         self.db = self.client[db_name]
         self.oplog_name = oplog_name
+        
         try:
             # Check if the collection already exists
-            if self.oplog_name in self.db.list_collection_names():
-                print(f"Collection '{self.oplog_name}' already exists.")
-            else:
-                # Create the capped collection
+            if recreate:
+                if self.oplog_name in self.db.list_collection_names():
+                    print(f"Collection '{self.oplog_name}' already exists. Deleting existing...")
+                    self.drop_collection(table_name=self.oplog_name)
+                
+            
+                if table in self.db.list_collection_names():
+                    print(f"Collection '{table}' already exists. Deleting existing...")
+                    self.drop_collection(table_name=table)
+                    self.load_data(table_name=table)
+            
+            # Create the capped collection
+            # if recreate is True:
+
                 self.db.create_collection(
                     self.oplog_name,
                     capped=True,

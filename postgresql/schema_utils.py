@@ -16,6 +16,7 @@ def get_table_schema(table_name):
 def get_primary_keys(table_name):
     conn = get_connection()
     cur = conn.cursor()
+    print(f"Fetching primary keys for table: {table_name}")
     cur.execute("""
         SELECT kcu.column_name
         FROM information_schema.table_constraints tc
