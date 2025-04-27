@@ -92,16 +92,10 @@ def process_command(command: str, set_attr: list, systems):
                 systems[system].set(key_tuple, value_tuple, set_attr, timestamp=timestamp)
             
             if system == "SQL":
-                systems[system].set({key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
-                    {key: value for key, value in zip(set_attr, value_tuple)},timestamp)
+                systems[system].set
             
             if system == "MONGO":
-                systems[system].set_item(
-                    {key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
-                    {key: value for key, value in zip(set_attr, value_tuple)},
-                    table="student_course_grades",
-                    timestamp=timestamp
-                )
+                systems[system].set_item
 
 
         elif op_type == "GET":
@@ -109,14 +103,10 @@ def process_command(command: str, set_attr: list, systems):
                 systems[system].get(key_tuple, timestamp=timestamp)
             
             if system == "SQL":
-                systems[system].get({key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},timestamp)
+                systems[system].get
 
             if system == "MONGO":
-                systems[system].get_item(
-                    {key: value for key, value in zip(['student_id', 'course_id'], key_tuple)},
-                    timestamp=timestamp,
-                    table="student_course_grades"
-                )
+                systems[system].get_item
 
         return False
 
