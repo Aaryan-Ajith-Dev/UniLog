@@ -1,4 +1,4 @@
-from postresql.sql_manager import SQL
+from postgresql.sql_manager import SQL
 
 client = SQL("grades")
 client.create_table('./dataset/student_course_grades.csv')
