@@ -116,9 +116,9 @@ class MongoService:
         """
         collection = self.db[table]
         try:
-            print("timeseat:",timestamp)
             log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "SET", "table": table, "keys": keys, "item": item}
             if log:
+                print(f"Inserting {log_entry} into {self.oplog_name}")
                 self._log_operation(log_entry)
             result = collection.update_one(keys, {"$set": item}, upsert=True)
             return result.upserted_id if result.upserted_id else result.modified_count
