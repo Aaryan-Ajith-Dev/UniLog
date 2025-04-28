@@ -23,8 +23,8 @@ class MongoService:
                 if self.oplog_name in self.db.list_collection_names():
                     print(f"Collection '{self.oplog_name}' already exists. Deleting existing...")
                     self.drop_collection(table_name=self.oplog_name)
-                
-            
+
+
                 if table in self.db.list_collection_names():
                     print(f"Collection '{table}' already exists. Deleting existing...")
                     self.drop_collection(table_name=table)
@@ -38,7 +38,7 @@ class MongoService:
                     capped=True,
                     size=1048576,  # Maximum size of the collection in bytes (e.g., 1MB)
                 )
-                self.db[self.oplog_name].create_index({ "timestamp": 1 }, unique=True)
+
                 print(f"Capped collection '{self.oplog_name}' created successfully.")
 
         except Exception as e:
@@ -116,9 +116,9 @@ class MongoService:
         """
         collection = self.db[table]
         try:
-            print("timeseat:",timestamp)
             log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "SET", "table": table, "keys": keys, "item": item}
             if log:
+                print(f"Inserting {log_entry} into {self.oplog_name}")
                 self._log_operation(log_entry)
             result = collection.update_one(keys, {"$set": item}, upsert=True)
             return result.upserted_id if result.upserted_id else result.modified_count
@@ -139,7 +139,10 @@ class MongoService:
             log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "GET", "table": table, "keys": keys, "projection": projection}
             if log:
                 self._log_operation(log_entry)
-            return collection.find_one(keys, projection)
+            
+            output = collection.find_one(keys, projection)
+            print("Rows fetched (MONGO):", output)
+            return output
         except Exception as e:
             print(f"Error getting item from '{table}': {e}")
             return None
@@ -184,11 +187,26 @@ class MongoService:
                                 "table", "keys", and "item".
                                 Sorted in order of timestamps???
         """
+        def filter_latest_oplog_entries(oplog_entries):
+            latest_entries = {}
+
+            for entry in oplog_entries:
+                # Create a tuple (keys, table) as the unique identifier
+                key = (tuple(sorted(entry['keys'].items())), entry['table'])
+
+                # If not seen before, or if current timestamp is newer, update
+                if key not in latest_entries or entry['timestamp'] > latest_entries[key]['timestamp']:
+                    latest_entries[key] = entry
+
+            # Return just the latest oplog entries as a list
+            return list(latest_entries.values())
 
 
         # Find the timestamp of the first instruction in the other oplog
         other_oplog = list(filter(lambda x: x.get('operation') == 'SET', other_oplog))
-        print(other_oplog)
+        for op in other_oplog:
+            op["_source"] = system_name
+
         if len(other_oplog) == 0:
             print("No operations found in the other oplog. Exiting.")
             return True
@@ -203,19 +221,20 @@ class MongoService:
             return False
         
         oplog.extend(other_oplog)
-        oplog.sort(key=lambda x: x.get('timestamp'))
 
-        print(f"Starting SET execution from timestamp: {start_timestamp}")
+        oplog = filter_latest_oplog_entries(oplog)
+        print("Filtered: ", oplog)
 
         # Execute SET operations starting from the timestamp of the first other oplog instruction
         for operation in oplog:
-            if operation.get('operation') == 'SET' and operation.get('timestamp', 0) >= start_timestamp:
+            if operation.get('_source', 'local') != 'local':
                 print(f"Executing: {operation}")
-                self.set_item(operation['keys'], operation['item'], operation['table'], operation['timestamp'],)
+                self.set_item(operation['keys'], operation['item'], operation['table'], operation['timestamp'])
 
         print(f"Merge operation completed with {system_name} system.")
         return True
-    
+
+
     def drop_collection(self, table_name="grades"):
         """
         Drops the specified MongoDB collection. USE WITH CAUTION!
@@ -248,15 +267,12 @@ class MongoService:
 
 # Example Usage (in a separate script):
 if __name__ == "__main__":
-    mongo_service = MongoService()  # You can change the default db name
+    mongo_service = MongoService(table="student_course_grades",recreate=True)  # You can change the default db name
 
-    mongo_service.drop_collection(table_name="grades")
-    mongo_service.drop_collection(table_name=mongo_service.oplog_name)
-
-    # Load data from a CSV
-    loaded_count = mongo_service.load_data(table_name="student_course_grades")
-    if loaded_count is not None:
-        print(f"Loaded {loaded_count} records into 'student_course_grades'.")
+    # # Load data from a CSV
+    # loaded_count = mongo_service.load_data(table_name="student_course_grades")
+    # if loaded_count is not None:
+    #     print(f"Loaded {loaded_count} records into 'student_course_grades'.")
 
     # print(mongo_service.db[mongo_service.oplog_name].index_information())
 
@@ -267,23 +283,75 @@ if __name__ == "__main__":
     #         print(entry)
 
     keys = {
-        "student_id": "SID1033",
-        "course_id": "CSE016"
+        "student_id": "SID101",
+        "course_id": "CSE026"
     }
 
-    # # Set a single item
-    # set_result = mongo_service.set_item(keys, {"grade": "B+"}, table="student_course_grades",timestamp=1)
-    # print(f"Set result for student SID1033: {set_result}")
+    '''
+    SET (( SID101 , CSE026 ) , B )
+    MONGO.GET ( SID403 , CSE013 )
+    SET (( SID101 , CSE026 ) , A )
+    '''
+
+    # Set a single item
+    set_result = mongo_service.set_item(keys, {"grade": "B"}, table="student_course_grades",timestamp=1)
+    print(f"Set result for student SID1033: {set_result}")
+
+    keys['student_id'] = "SID403"
+    keys['course_id'] = "CSE013"
 
     # Get a single item
-    # grade_1033 = mongo_service.get_item(keys, table="student_course_grades",timestamp=2)
-    # print(f"Grade for student: {grade_1033}")
+    grade_1033 = mongo_service.get_item(keys, table="student_course_grades",timestamp=2)
+    print(f"Grade for student: {grade_1033}")
 
-    # # Merge operations
-    # merge_operations = [
-    #     {"timestamp": 1745424164.00, "operation": "SET", "table": "grades", "keys": keys, "item": {"Obtained Marks/Grade": "C"}}
-    # ]
-    # merge_results = mongo_service.merge(merge_operations)
-    # print(f"Merge status: {merge_results}")
+    keys['student_id'] = "SID101"
+    keys['course_id'] = "CSE026"
+
+    # Set a single item
+    set_result = mongo_service.set_item(keys, {"grade": "B"}, table="student_course_grades",timestamp=3)
+    print(f"Set result for student SID1033: {set_result}")
+
+    # Merge operations
+    merge_operations = [
+        {
+            "timestamp": 1,
+            "operation": "SET",
+            "table": "student_course_grades",
+            "keys": {
+                "student_id": "SID103",
+                "course_id": "CSE016"
+            },
+            "item": {
+                "grade": "A"
+            }
+        },
+        {
+            "timestamp": 2,
+            "operation": "GET",
+            "table": "student_course_grades",
+            "keys": {
+                "student_id": "SID103",
+                "course_id": "CSE016"
+            },
+            "item": {}
+        },
+        {
+            "timestamp": 3,
+            "operation": "SET",
+            "table": "student_course_grades",
+            "keys": {
+                "student_id": "SID103",
+                "course_id": "CSE016"
+            },
+            "item": {
+                "roll_no": "None",
+                "email_id": "None",
+                "grade": "B"
+            }
+            }
+    ]
+
+    merge_results = mongo_service.merge("Hive", merge_operations)
+    print(f"Merge status: {merge_results}")
 
     mongo_service.close()
