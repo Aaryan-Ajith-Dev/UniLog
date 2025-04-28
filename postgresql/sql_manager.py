@@ -25,7 +25,9 @@ class SQL:
 
     def get(self, keys, action_time):
         """Perform a GET operation and log it."""
-        return get_row(self.table_name, keys, action_time)
+        rows = get_row(self.table_name, keys, action_time)
+        print("Rows fetched (SQL):", rows)
+        return rows
 
     def merge(self, system_name, external_logs):
         """Merge SET operations from external log entries."""

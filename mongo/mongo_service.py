@@ -95,7 +95,7 @@ class MongoService:
         return time.time()
 
 
-    def set_item(self, keys, item, table="grades", timestamp=None, log=True, _source='local'):
+    def set_item(self, keys, item, table="grades", timestamp=None, log=True):
         """
         Sets or updates an item in the specified MongoDB collection based on the key.
         'keys' is a dictionary containing the set of keys used for search
@@ -117,7 +117,7 @@ class MongoService:
         collection = self.db[table]
         try:
             print("timeseat:",timestamp)
-            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "SET", "table": table, "keys": keys, "item": item, "_source": _source}
+            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "SET", "table": table, "keys": keys, "item": item}
             if log:
                 self._log_operation(log_entry)
             result = collection.update_one(keys, {"$set": item}, upsert=True)
@@ -126,7 +126,7 @@ class MongoService:
             print(f"Error setting item in '{table}': {e}")
             return None
 
-    def get_item(self, keys, timestamp=None, table="grades", projection=None, log=True, _source="local"):
+    def get_item(self, keys, timestamp=None, table="grades", projection=None, log=True):
         """
         Retrieves a single item from the specified MongoDB collection based on the key.
         'keys' is a dictionary containing the set of keys used for search
@@ -136,10 +136,13 @@ class MongoService:
         """
         collection = self.db[table]
         try:
-            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "GET", "table": table, "keys": keys, "projection": projection, "_source": _source}
+            log_entry = {"timestamp": timestamp if timestamp else self._get_timestamp(), "operation": "GET", "table": table, "keys": keys, "projection": projection}
             if log:
                 self._log_operation(log_entry)
-            return collection.find_one(keys, projection)
+            
+            output = collection.find_one(keys, projection)
+            print("Rows fetched (MONGO):", output)
+            return output
         except Exception as e:
             print(f"Error getting item from '{table}': {e}")
             return None
@@ -201,8 +204,8 @@ class MongoService:
 
         # Find the timestamp of the first instruction in the other oplog
         other_oplog = list(filter(lambda x: x.get('operation') == 'SET', other_oplog))
-        for oplog in other_oplog:
-            oplog["_source"] = system_name
+        for op in other_oplog:
+            op["_source"] = system_name
 
         if len(other_oplog) == 0:
             print("No operations found in the other oplog. Exiting.")
@@ -224,9 +227,9 @@ class MongoService:
 
         # Execute SET operations starting from the timestamp of the first other oplog instruction
         for operation in oplog:
-            if operation.get('_source') != 'local':
+            if operation.get('_source', 'local') != 'local':
                 print(f"Executing: {operation}")
-                self.set_item(operation['keys'], operation['item'], operation['table'], operation['timestamp'], _source=operation["_source"])
+                self.set_item(operation['keys'], operation['item'], operation['table'], operation['timestamp'])
 
         print(f"Merge operation completed with {system_name} system.")
         return True
