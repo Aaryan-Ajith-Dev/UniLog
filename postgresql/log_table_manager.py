@@ -1,7 +1,12 @@
 from .db import get_connection
 from .schema_utils import get_table_schema
 
-def create_log_table(table_name):
+def create_log_table(table_name,recreate=False):
+    conn = get_connection()
+    cur = conn.cursor()
+    if recreate:
+        cur.execute(f""" DROP TABLE IF EXISTS {table_name}_log""")
+
     schema = get_table_schema(table_name)
     log_table = f"{table_name}_log"
 
@@ -17,8 +22,7 @@ def create_log_table(table_name):
     );
     """
 
-    conn = get_connection()
-    cur = conn.cursor()
+    
     cur.execute(ddl)
     conn.commit()
     cur.close()

@@ -1,7 +1,7 @@
 import pandas as pd
 from .db import get_connection
 
-def create_table(table_name, csv_path):
+def create_table(table_name, csv_path, recreate=False):
     """
     Creates the main table and inserts data from a CSV file only if table is empty.
     Assumes the CSV columns match expected student table schema.
@@ -9,9 +9,13 @@ def create_table(table_name, csv_path):
     conn = get_connection()
     cur = conn.cursor()
 
+    # Check if the table already exists
+    if recreate:
+        cur.execute(f""" DROP TABLE IF EXISTS {table_name}""")
+
     # Create the table
     cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        CREATE TABLE {table_name} (
             student_id TEXT,
             course_id TEXT,
             roll_no TEXT,
