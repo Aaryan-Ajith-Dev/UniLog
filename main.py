@@ -133,38 +133,45 @@ def main():
     recreate_sql = True
     recreate_mongo = True
 
+    table_name = "student_course_grades"
+
+    
+
+    key = ["student_id", "course_id"]
+    set_attr = ["grade"]
+
+    source_csv_path = "dataset/student_course_grades_head.csv" 
+    hive_csv_path = "/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades.csv"
+    test_file = "testcase.in"
+
     hive_system = HiveSystem()
-    mongo_system = MongoService(recreate=recreate_mongo,table="student_course_grades")
-    sql_system = SQL("student_course_grades")
+    mongo_system = MongoService(recreate=recreate_mongo,table = table_name)
+    sql_system = SQL(table_name)
 
     systems = {
         "HIVE": hive_system,
         "SQL": sql_system,
         "MONGO": mongo_system
     }
-
-    key = ["student_id", "course_id"]
-    set_attr = ["grade"]
-    
     
     try:
         hive_system.connect()
-        csv_path = "/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades.csv"
-        status = hive_system.load_data_from_csv(csv_path, recreate_hive)
+        hive_system.make_csv(source_csv_path,hive_csv_path)
+        status = hive_system.load_data_from_csv(table_name,hive_csv_path, recreate_hive)
         print("Loading status",status)
-        hive_system.set_table("student_course_grades")
+        hive_system.set_table(table_name)
         hive_system.create_oplog_table(recreate_hive)
         hive_system.build_timestamp_cache(key)
 
 
-        mongo_system.load_data()
+        mongo_system.load_data(csv_file_path=source_csv_path)
 
         
-        sql_system.create_table("/home/sohith/Desktop/nosql/project/UniLog/dataset/student_course_grades_head.csv",recreate_sql)
+        sql_system.create_table(source_csv_path,recreate_sql)
         sql_system.create_log_table(recreate_sql)
         print("Connected to Hive,MongoDB and PostgreSQL systems.")
 
-        test_file = "/home/sohith/Desktop/nosql/project/UniLog/testcase.in"
+        
        
         with open(test_file, 'r') as f:
             commands = f.readlines()

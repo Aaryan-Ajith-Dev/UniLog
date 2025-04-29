@@ -3,6 +3,7 @@ import tempfile
 import pandas as pd
 from pyhive import hive
 from typing import List, Dict
+import csv
 
 class HiveConnection:
     """
@@ -342,11 +343,12 @@ class TableManager:
             print(f"Error setting table: {e}")
             return False
             
-    def load_data_from_csv(self, csv_file: str, recreate: bool = False) -> bool:
+    def load_data_from_csv(self, table_name, csv_file: str, recreate: bool = False) -> bool:
         """
         Load data from CSV into Hive table.
         
         Args:
+            table_name (str): Name of target table
             csv_file (str): Path to CSV file
             recreate (bool): Whether to recreate table
             
@@ -369,12 +371,12 @@ class TableManager:
             self.conn.execute("SET hive.exec.mode.local.auto=true;")
 
             # Drop tables if they exist
-            self.conn.execute("DROP TABLE IF EXISTS student_course_grades")
-            self.conn.execute("DROP TABLE IF EXISTS student_course_grades_staging")
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}_staging")
 
             # Create final table
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS student_course_grades (
+            create_table_query = f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
                 student_id STRING,
                 course_id STRING,
                 roll_no STRING,
@@ -383,13 +385,14 @@ class TableManager:
                 custom_timestamp INT
             )
             STORED AS TEXTFILE
-            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/student_course_grades/'
+            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/{table_name}/'
             """
+            print(f"Creating table: {create_table_query}")
             self.conn.execute(create_table_query)
 
             # Create staging table
-            create_staging_table_query = """
-            CREATE TABLE IF NOT EXISTS student_course_grades_staging (
+            create_staging_table_query = f"""
+            CREATE TABLE IF NOT EXISTS {table_name}_staging (
                 student_id STRING,
                 course_id STRING,
                 roll_no STRING,
@@ -401,7 +404,7 @@ class TableManager:
                 "separatorChar" = ","
             )
             STORED AS TEXTFILE
-            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/student_course_grades_staging/'
+            LOCATION '/home/sohith/Desktop/nosql/project/UniLog/hive/tmp/{table_name}_staging/'
             TBLPROPERTIES ("skip.header.line.count"="1")
             """
             self.conn.execute(create_staging_table_query)
@@ -409,22 +412,22 @@ class TableManager:
             # Load data into staging table
             load_data_query = f"""
             LOAD DATA LOCAL INPATH '{csv_file}'
-            INTO TABLE student_course_grades_staging
+            INTO TABLE {table_name}_staging
             """
             self.conn.execute(load_data_query)
 
             # Insert into final table with custom_timestamp = 0
-            insert_query = """
-            INSERT INTO TABLE student_course_grades
+            insert_query = f"""
+            INSERT INTO TABLE {table_name}
             SELECT student_id, course_id, roll_no, email_id, grade, 0
-            FROM student_course_grades_staging
+            FROM {table_name}_staging
             """
             self.conn.execute(insert_query)
 
             # Drop staging table
-            self.conn.execute("DROP TABLE IF EXISTS student_course_grades_staging")
+            self.conn.execute("DROP TABLE IF EXISTS {table_name}_staging")
 
-            print(f"-----Successfully loaded data from {csv_file} into Hive table 'student_course_grades'")
+            print(f"-----Successfully loaded data from {csv_file} into Hive table '{table_name}'")
             return True
 
         except Exception as e:
@@ -466,9 +469,9 @@ class HiveSystem:
         """Set the active table"""
         return self.table_manager.set_table(table_name)
         
-    def load_data_from_csv(self, csv_file, recreate=False):
+    def load_data_from_csv(self, table_name, csv_file, recreate=False):
         """Load data from CSV file"""
-        return self.table_manager.load_data_from_csv(csv_file, recreate)
+        return self.table_manager.load_data_from_csv(table_name,csv_file, recreate)
         
     def create_oplog_table(self, recreate=False):
         """Create oplog table"""
@@ -634,7 +637,7 @@ class HiveSystem:
         """
         try:
             # Example: Load oplog from external source (replace with real loader)
-            # external_oplog = [{'timestamp': 1, 'operation': 'SET', 'table': 'student_course_grades', 'keys': {'student_id': 'SID103', 'course_id':'CSE016'}, 'item': {'grade': 'B'}}]
+            # external_oplog = [{'timestamp': 1, 'operation': 'SET', 'table': '{table_name}', 'keys': {'student_id': 'SID103', 'course_id':'CSE016'}, 'item': {'grade': 'B'}}]
 
             applied_count = 0
 
@@ -679,6 +682,31 @@ class HiveSystem:
     def get_oplog(self):
         """Get the operation log"""
         return self.oplog_manager.get_oplog()
+    
+    def make_csv(self, input_file: str, output_file: str):
+        """
+        Create a CSV file from the oplog data.
+        
+        Args:
+            input_file (str): Path to the input file
+            output_file (str): Path to the output CSV file
+
+        """
+        try:
+
+            with open(input_file, 'r', newline='') as infile, open(output_file, 'w', newline='') as outfile:
+                reader = csv.reader(infile)
+                writer = csv.writer(outfile)
+                
+                next(reader)  # Skip the header row
+                for row in reader:
+                    writer.writerow(row)
+            print(f"CSV file created at {output_file}")
+        except Exception as e:
+            print(f"Error creating CSV file: {e}")
+            return None
+
+
 
 
 def main():
