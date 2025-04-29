@@ -112,7 +112,7 @@ class TimestampCache:
             timestamp (int): The timestamp value to set
         """
         self.cache[key_tuple] = timestamp
-        print(f"Assigned timestamp for key {key_tuple} with value {timestamp}.")
+        # print(f"Assigned timestamp for key {key_tuple} with value {timestamp}.")
         
     def build_from_query(self, conn, table_name: str, prime_attr: List[str]) -> None:
         """
