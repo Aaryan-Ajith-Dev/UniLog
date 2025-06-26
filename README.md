@@ -163,5 +163,12 @@ This will execute the commands from `testcase.in` across all systems.
 ---
 
 ## Contribution
+Aaryan Ajith Dev — Implemented the MongoDB integration module and contributed the design for a unified operation log schema, ensuring consistency and simplifying the addition of new database systems through a shared interface.
+
+Sai Venkata Sohith Gutta — Developed the Hive module and implemented the timestamp caching mechanism to maintain operation ordering.
+
+Shreyas S — Implemented the PostgreSQL integration layer, handling synchronization and log-based merge functionality.
+
+
 
 Implemented the **MongoDB module** and designed the unified **operation log schema**, enabling consistency and easy integration across heterogeneous databases. This ensures minimal changes are needed when integrating a new database system. Typically, only the database-specific handler needs to implement the required core functions using the shared interface, keeping the integration process clean and maintainable.
